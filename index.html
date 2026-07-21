@@ -69,6 +69,26 @@
   .timeline-empty{padding:14px; color:var(--ink-soft); font-size:13px;}
 
   .log-day{margin-bottom:6px;}
+
+  .view-toggle{display:flex; gap:8px; margin-bottom:14px;}
+  .toggle-btn{
+    border:1px solid var(--line); background:var(--bg-card); color:var(--ink-soft); font-family:'Inter',sans-serif;
+    font-size:13px; font-weight:600; padding:8px 14px; border-radius:10px; cursor:pointer;
+  }
+  .toggle-btn.active{background:var(--ink); color:#fff; border-color:var(--ink);}
+  .toggle-btn.export{margin-left:auto; color:var(--good); border-color:var(--good);}
+
+  .table-wrap{background:var(--bg-card); border:1px solid var(--line); border-radius:var(--radius); overflow-x:auto;}
+  table.log-table{width:100%; border-collapse:collapse; font-size:13.5px; white-space:nowrap;}
+  table.log-table th{
+    text-align:left; padding:10px 12px; font-size:11px; text-transform:uppercase; letter-spacing:.05em;
+    color:var(--ink-soft); border-bottom:1px solid var(--line); position:sticky; top:0; background:var(--bg-card);
+  }
+  table.log-table td{padding:10px 12px; border-bottom:1px solid var(--line);}
+  table.log-table tr:last-child td{border-bottom:none;}
+  table.log-table .type-feed{color:var(--feed); font-weight:600;}
+  table.log-table .type-pee{color:#B08F1E; font-weight:600;}
+  table.log-table .type-poop{color:var(--poop); font-weight:600;}
   .log-day-label{font-size:13px; font-weight:600; color:var(--ink-soft); margin:18px 2px 8px;}
   .entry{
     display:flex; align-items:center; gap:12px; background:var(--bg-card); border:1px solid var(--line);
@@ -125,7 +145,14 @@
     <div class="timeline" id="timeline"><div class="timeline-empty">Nothing logged today yet</div></div>
   </div>
 
+  <div class="view-toggle">
+    <button class="toggle-btn active" id="listViewBtn">List</button>
+    <button class="toggle-btn" id="tableViewBtn">Table</button>
+    <button class="toggle-btn export" id="exportBtn">Export CSV</button>
+  </div>
+
   <div id="log"></div>
+  <div id="tableView" style="display:none;"></div>
 
   <footer>Shared with both parents — updates sync automatically every few seconds.</footer>
 </div>
@@ -312,11 +339,68 @@ function renderLog(){
   });
 }
 
+function renderTable(){
+  const tableEl = document.getElementById('tableView');
+  if(!events.length){
+    tableEl.innerHTML = '<div class="empty-state"><div class="big">📋</div>Nothing to show yet.</div>';
+    return;
+  }
+  const sorted = [...events].sort((a,b)=>{
+    const ta = new Date(a.type==='feed'?a.start:a.time);
+    const tb = new Date(b.type==='feed'?b.start:b.time);
+    return tb - ta;
+  });
+  let rows = sorted.map(e=>{
+    const t = e.type==='feed' ? e.start : e.time;
+    const dateStr = new Date(t).toLocaleDateString([], {month:'short', day:'numeric'});
+    const timeStr = fmtTime(t);
+    const typeLabel = e.type==='feed' ? 'Feeding' : (e.type==='pee' ? 'Pee' : 'Poop');
+    const durationCol = e.type==='feed' ? (e.end ? durationStr(e.start, e.end) : 'in progress') : '—';
+    return `<tr>
+      <td>${dateStr}</td>
+      <td>${timeStr}</td>
+      <td class="type-${e.type}">${typeLabel}</td>
+      <td>${durationCol}</td>
+    </tr>`;
+  }).join('');
+  tableEl.innerHTML = `<div class="table-wrap"><table class="log-table">
+    <thead><tr><th>Date</th><th>Time</th><th>Type</th><th>Duration</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table></div>`;
+}
+
+function exportCSV(){
+  const sorted = [...events].sort((a,b)=>{
+    const ta = new Date(a.type==='feed'?a.start:a.time);
+    const tb = new Date(b.type==='feed'?b.start:b.time);
+    return ta - tb;
+  });
+  let csv = 'Date,Time,Type,Duration\n';
+  sorted.forEach(e=>{
+    const t = e.type==='feed' ? e.start : e.time;
+    const dateStr = new Date(t).toLocaleDateString();
+    const timeStr = fmtTime(t);
+    const typeLabel = e.type==='feed' ? 'Feeding' : (e.type==='pee' ? 'Pee' : 'Poop');
+    const durationCol = e.type==='feed' ? (e.end ? durationStr(e.start, e.end) : 'in progress') : '';
+    csv += `${dateStr},${timeStr},${typeLabel},${durationCol}\n`;
+  });
+  const blob = new Blob([csv], {type:'text/csv'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'baby-log-' + new Date().toISOString().slice(0,10) + '.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 function renderAll(){
   updateFeedButton();
   updateStats();
   renderTimeline();
   renderLog();
+  renderTable();
 }
 
 document.getElementById('feedBtn').addEventListener('click', async ()=>{
@@ -354,6 +438,20 @@ onSnapshot(activeFeedDocRef, (snap)=>{
   activeFeedStart = snap.exists() ? snap.data().start : null;
   renderAll();
 }, (err)=>{ console.error(err); flashSync(false); });
+
+document.getElementById('listViewBtn').addEventListener('click', ()=>{
+  document.getElementById('listViewBtn').classList.add('active');
+  document.getElementById('tableViewBtn').classList.remove('active');
+  document.getElementById('log').style.display = '';
+  document.getElementById('tableView').style.display = 'none';
+});
+document.getElementById('tableViewBtn').addEventListener('click', ()=>{
+  document.getElementById('tableViewBtn').classList.add('active');
+  document.getElementById('listViewBtn').classList.remove('active');
+  document.getElementById('log').style.display = 'none';
+  document.getElementById('tableView').style.display = '';
+});
+document.getElementById('exportBtn').addEventListener('click', exportCSV);
 
 </script>
 </body>
