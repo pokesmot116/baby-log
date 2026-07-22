@@ -19,6 +19,8 @@
     --pee-soft: #FBF3D6;
     --poop: #8A6A46;
     --poop-soft: #EAE0D2;
+    --sleep: #6C7BB0;
+    --sleep-soft: #E3E6F3;
     --good: #5B8C6E;
     --radius: 18px;
   }
@@ -31,11 +33,11 @@
   .sync-dot{display:flex; align-items:center; gap:6px; font-size:12px; color:var(--ink-soft);}
   .sync-dot span.led{width:7px; height:7px; border-radius:50%; background:var(--good); display:inline-block; transition:opacity .3s;}
 
-  .stats{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:16px;}
-  .stat{background:var(--bg-card); border-radius:var(--radius); padding:14px 16px; border:1px solid var(--line);}
-  .stat .label{font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--ink-soft); font-weight:600;}
-  .stat .value{font-family:'Fraunces',serif; font-size:22px; margin-top:4px; font-weight:500;}
-  .stat .sub{font-size:12px; color:var(--ink-soft); margin-top:2px;}
+  .stats{display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin-bottom:16px;}
+  .stat{background:var(--bg-card); border-radius:var(--radius); padding:12px 10px; border:1px solid var(--line);}
+  .stat .label{font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); font-weight:600;}
+  .stat .value{font-family:'Fraunces',serif; font-size:17px; margin-top:4px; font-weight:500; white-space:nowrap;}
+  .stat .sub{font-size:10.5px; color:var(--ink-soft); margin-top:2px;}
 
   .feed-btn{
     width:100%; border:none; border-radius:var(--radius); padding:22px 18px;
@@ -45,6 +47,8 @@
   }
   .feed-btn:active{transform:scale(0.98);}
   .feed-btn.active{background:#C97A1E;}
+  .feed-btn.sleep-btn{background:var(--sleep); box-shadow:0 4px 14px rgba(108,123,176,0.25);}
+  .feed-btn.sleep-btn.active{background:#4E5D8F;}
   .feed-btn .pulse{width:10px;height:10px;border-radius:50%;background:#fff; animation:pulse 1.4s infinite ease-in-out;}
   .feed-btn.active .pulse{display:block;} .feed-btn:not(.active) .pulse{display:none;}
   @keyframes pulse{0%,100%{opacity:1; transform:scale(1);} 50%{opacity:.35; transform:scale(1.4);}}
@@ -65,7 +69,7 @@
   .section-label{font-size:12px; text-transform:uppercase; letter-spacing:.06em; color:var(--ink-soft); font-weight:600; margin:0 0 8px 2px;}
   .timeline{display:flex; gap:6px; overflow-x:auto; padding:10px 2px; background:var(--bg-card); border-radius:var(--radius); border:1px solid var(--line);}
   .tdot{flex:0 0 auto; width:10px; height:10px; border-radius:50%; margin-top:4px;}
-  .tdot.feed{background:var(--feed);} .tdot.pee{background:var(--pee);} .tdot.poop{background:var(--poop);}
+  .tdot.feed{background:var(--feed);} .tdot.pee{background:var(--pee);} .tdot.poop{background:var(--poop);} .tdot.sleep{background:var(--sleep);}
   .timeline-empty{padding:14px; color:var(--ink-soft); font-size:13px;}
 
   .log-day{margin-bottom:6px;}
@@ -87,6 +91,7 @@
   table.log-table td{padding:10px 12px; border-bottom:1px solid var(--line);}
   table.log-table tr:last-child td{border-bottom:none;}
   table.log-table .type-feed{color:var(--feed); font-weight:600;}
+  table.log-table .type-sleep{color:var(--sleep); font-weight:600;}
   table.log-table .type-pee{color:#B08F1E; font-weight:600;}
   table.log-table .type-poop{color:var(--poop); font-weight:600;}
   .log-day-label{font-size:13px; font-weight:600; color:var(--ink-soft); margin:18px 2px 8px;}
@@ -95,12 +100,25 @@
     border-radius:14px; padding:12px 14px; margin-bottom:8px;
   }
   .entry .badge{width:34px; height:34px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:17px; flex:0 0 auto;}
-  .entry .badge.feed{background:var(--feed-soft);} .entry .badge.pee{background:var(--pee-soft);} .entry .badge.poop{background:var(--poop-soft);}
+  .entry .badge.feed{background:var(--feed-soft);} .entry .badge.pee{background:var(--pee-soft);} .entry .badge.poop{background:var(--poop-soft);} .entry .badge.sleep{background:var(--sleep-soft);}
   .entry .meta{flex:1; min-width:0;}
   .entry .meta .type{font-weight:600; font-size:14.5px;}
   .entry .meta .time{font-size:12.5px; color:var(--ink-soft); margin-top:1px;}
   .entry .del{border:none; background:transparent; color:var(--ink-soft); font-size:18px; cursor:pointer; padding:6px;}
   .entry .del:active{color:#C0392B;}
+  .entry .edit{border:none; background:transparent; color:var(--ink-soft); font-size:16px; cursor:pointer; padding:6px;}
+  .entry .edit:active{color:var(--ink);}
+
+  .entry-editing{flex-direction:column; align-items:stretch;}
+  .edit-form{width:100%; display:flex; flex-direction:column; gap:10px;}
+  .edit-form label{display:flex; flex-direction:column; gap:4px; font-size:12px; color:var(--ink-soft); font-weight:600;}
+  .edit-form input[type="datetime-local"]{
+    font-family:'Inter',sans-serif; font-size:14px; padding:8px 10px; border-radius:8px; border:1px solid var(--line); color:var(--ink);
+  }
+  .edit-actions{display:flex; gap:8px; margin-top:2px;}
+  .edit-actions button{flex:1; border:none; border-radius:10px; padding:9px; font-family:'Inter',sans-serif; font-weight:600; font-size:13.5px; cursor:pointer;}
+  .edit-save{background:var(--good); color:#fff;}
+  .edit-cancel{background:var(--line); color:var(--ink);}
 
   .empty-state{text-align:center; padding:40px 20px; color:var(--ink-soft);}
   .empty-state .big{font-size:34px; margin-bottom:8px;}
@@ -125,12 +143,25 @@
       <div class="value" id="lastDiaperVal">—</div>
       <div class="sub" id="lastDiaperSub">no entries yet</div>
     </div>
+    <div class="stat">
+      <div class="label">Last sleep</div>
+      <div class="value" id="lastSleepVal">—</div>
+      <div class="sub" id="lastSleepSub">no entries yet</div>
+    </div>
   </div>
 
   <button class="feed-btn" id="feedBtn">
     <span id="feedBtnLabel">Start feeding</span>
     <span style="display:flex; align-items:center; gap:8px;">
       <span class="feed-timer" id="feedTimer"></span>
+      <span class="pulse"></span>
+    </span>
+  </button>
+
+  <button class="feed-btn sleep-btn" id="sleepBtn">
+    <span id="sleepBtnLabel">Start sleep</span>
+    <span style="display:flex; align-items:center; gap:8px;">
+      <span class="feed-timer" id="sleepTimer"></span>
       <span class="pulse"></span>
     </span>
   </button>
@@ -176,10 +207,16 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const eventsDocRef = doc(db, "babyLog", "events");
 const activeFeedDocRef = doc(db, "babyLog", "activeFeed");
+const activeSleepDocRef = doc(db, "babyLog", "activeSleep");
 
 let events = [];
 let activeFeedStart = null;
 let feedTimerInterval = null;
+let activeSleepStart = null;
+let sleepTimerInterval = null;
+
+function isTimedEvent(type){ return type === 'feed' || type === 'sleep'; }
+function eventTime(e){ return isTimedEvent(e.type) ? e.start : e.time; }
 
 function fmtTime(iso){
   const d = new Date(iso);
@@ -227,6 +264,16 @@ async function saveActiveFeed(){
     flashSync(true);
   }catch(e){ flashSync(false); console.error(e); }
 }
+async function saveActiveSleep(){
+  try{
+    if(activeSleepStart){
+      await setDoc(activeSleepDocRef, { start: activeSleepStart });
+    } else {
+      await deleteDoc(activeSleepDocRef);
+    }
+    flashSync(true);
+  }catch(e){ flashSync(false); console.error(e); }
+}
 function flashSync(ok){
   const led = document.getElementById('syncLed');
   const text = document.getElementById('syncText');
@@ -257,13 +304,43 @@ function updateFeedButton(){
   }
 }
 
+function updateSleepButton(){
+  const btn = document.getElementById('sleepBtn');
+  const label = document.getElementById('sleepBtnLabel');
+  const timer = document.getElementById('sleepTimer');
+  if(activeSleepStart){
+    btn.classList.add('active');
+    label.textContent = 'End sleep';
+    if(!sleepTimerInterval){
+      sleepTimerInterval = setInterval(()=>{
+        const ms = Date.now() - new Date(activeSleepStart).getTime();
+        const totalSecs = Math.floor(ms/1000);
+        const hrs = Math.floor(totalSecs/3600);
+        const mins = Math.floor((totalSecs%3600)/60);
+        const secs = totalSecs%60;
+        timer.textContent = hrs > 0
+          ? hrs + ':' + String(mins).padStart(2,'0') + ':' + String(secs).padStart(2,'0')
+          : mins + ':' + String(secs).padStart(2,'0');
+      }, 1000);
+    }
+  } else {
+    btn.classList.remove('active');
+    label.textContent = 'Start sleep';
+    timer.textContent = '';
+    if(sleepTimerInterval){ clearInterval(sleepTimerInterval); sleepTimerInterval = null; }
+  }
+}
+
 function updateStats(){
   const feeds = events.filter(e=>e.type==='feed').sort((a,b)=>new Date(b.start)-new Date(a.start));
   const diapers = events.filter(e=>e.type==='pee'||e.type==='poop').sort((a,b)=>new Date(b.time)-new Date(a.time));
+  const sleeps = events.filter(e=>e.type==='sleep').sort((a,b)=>new Date(b.start)-new Date(a.start));
   const lastFeedVal = document.getElementById('lastFeedVal');
   const lastFeedSub = document.getElementById('lastFeedSub');
   const lastDiaperVal = document.getElementById('lastDiaperVal');
   const lastDiaperSub = document.getElementById('lastDiaperSub');
+  const lastSleepVal = document.getElementById('lastSleepVal');
+  const lastSleepSub = document.getElementById('lastSleepSub');
   if(feeds.length){
     lastFeedVal.textContent = ago(feeds[0].start);
     lastFeedSub.textContent = fmtTime(feeds[0].start) + (feeds[0].end ? ' · ' + durationStr(feeds[0].start, feeds[0].end) : '');
@@ -276,6 +353,12 @@ function updateStats(){
   } else {
     lastDiaperVal.textContent = '—'; lastDiaperSub.textContent = 'no entries yet';
   }
+  if(sleeps.length){
+    lastSleepVal.textContent = ago(sleeps[0].start);
+    lastSleepSub.textContent = fmtTime(sleeps[0].start) + (sleeps[0].end ? ' · ' + durationStr(sleeps[0].start, sleeps[0].end) : ' · ongoing');
+  } else {
+    lastSleepVal.textContent = '—'; lastSleepSub.textContent = 'no entries yet';
+  }
 }
 
 function renderTimeline(){
@@ -283,10 +366,21 @@ function renderTimeline(){
   const todays = events.filter(e=>{
     const t = e.type==='feed' ? e.start : e.time;
     return new Date(t).toDateString() === today;
-  }).sort((a,b)=> new Date(a.type==='feed'?a.start:a.time) - new Date(b.type==='feed'?b.start:b.time));
+  }).sort((a,b)=> new Date(eventTime(a)) - new Date(eventTime(b)));
   const el = document.getElementById('timeline');
   if(!todays.length){ el.innerHTML = '<div class="timeline-empty">Nothing logged today yet</div>'; return; }
-  el.innerHTML = todays.map(e=>`<span class="tdot ${e.type}" title="${e.type} ${fmtTime(e.type==='feed'?e.start:e.time)}"></span>`).join('');
+  el.innerHTML = todays.map(e=>`<span class="tdot ${e.type}" title="${e.type} ${fmtTime(eventTime(e))}"></span>`).join('');
+}
+
+let editingId = null;
+
+function toLocalInputValue(iso){
+  const d = new Date(iso);
+  const pad = n => String(n).padStart(2,'0');
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+function fromLocalInputValue(str){
+  return new Date(str).toISOString();
 }
 
 function renderLog(){
@@ -296,13 +390,13 @@ function renderLog(){
     return;
   }
   const sorted = [...events].sort((a,b)=>{
-    const ta = new Date(a.type==='feed'?a.start:a.time);
-    const tb = new Date(b.type==='feed'?b.start:b.time);
+    const ta = new Date(eventTime(a));
+    const tb = new Date(eventTime(b));
     return tb - ta;
   });
   const groups = {};
   sorted.forEach(e=>{
-    const t = e.type==='feed'?e.start:e.time;
+    const t = eventTime(e);
     const dayKey = new Date(t).toDateString();
     if(!groups[dayKey]) groups[dayKey] = [];
     groups[dayKey].push(e);
@@ -310,11 +404,18 @@ function renderLog(){
   let html = '';
   Object.keys(groups).forEach(dayKey=>{
     const items = groups[dayKey];
-    html += `<div class="log-day-label">${fmtDateLabel(items[0].type==='feed'?items[0].start:items[0].time)}</div>`;
+    html += `<div class="log-day-label">${fmtDateLabel(eventTime(items[0]))}</div>`;
     items.forEach(e=>{
+      if(editingId === e.id){
+        html += renderEditForm(e);
+        return;
+      }
       let icon, typeLabel, timeLabel;
       if(e.type==='feed'){
         icon = '🍼'; typeLabel = 'Feeding';
+        timeLabel = fmtTime(e.start) + (e.end ? ' – ' + fmtTime(e.end) + ' · ' + durationStr(e.start, e.end) : ' · in progress');
+      } else if(e.type==='sleep'){
+        icon = '😴'; typeLabel = 'Sleep';
         timeLabel = fmtTime(e.start) + (e.end ? ' – ' + fmtTime(e.end) + ' · ' + durationStr(e.start, e.end) : ' · in progress');
       } else if(e.type==='pee'){
         icon = '💛'; typeLabel = 'Pee'; timeLabel = fmtTime(e.time);
@@ -324,11 +425,13 @@ function renderLog(){
       html += `<div class="entry">
         <div class="badge ${e.type}">${icon}</div>
         <div class="meta"><div class="type">${typeLabel}</div><div class="time">${timeLabel}</div></div>
+        <button class="edit" data-id="${e.id}" aria-label="Edit entry">✎</button>
         <button class="del" data-id="${e.id}" aria-label="Delete entry">✕</button>
       </div>`;
     });
   });
   logEl.innerHTML = html;
+
   logEl.querySelectorAll('.del').forEach(btn=>{
     btn.addEventListener('click', async ()=>{
       const id = btn.getAttribute('data-id');
@@ -337,6 +440,62 @@ function renderLog(){
       renderAll();
     });
   });
+  logEl.querySelectorAll('.edit').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      editingId = btn.getAttribute('data-id');
+      renderAll();
+    });
+  });
+  logEl.querySelectorAll('.edit-cancel').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      editingId = null;
+      renderAll();
+    });
+  });
+  logEl.querySelectorAll('.edit-save').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const id = btn.getAttribute('data-id');
+      const ev = events.find(x=>x.id === id);
+      if(!ev) return;
+      if(isTimedEvent(ev.type)){
+        const startVal = document.getElementById('editStart-'+id).value;
+        const endVal = document.getElementById('editEnd-'+id).value;
+        if(startVal) ev.start = fromLocalInputValue(startVal);
+        ev.end = endVal ? fromLocalInputValue(endVal) : null;
+      } else {
+        const timeVal = document.getElementById('editTime-'+id).value;
+        if(timeVal) ev.time = fromLocalInputValue(timeVal);
+      }
+      editingId = null;
+      await saveEvents();
+      renderAll();
+    });
+  });
+}
+
+function renderEditForm(e){
+  if(isTimedEvent(e.type)){
+    return `<div class="entry entry-editing">
+      <div class="edit-form">
+        <label>Start<input type="datetime-local" id="editStart-${e.id}" value="${toLocalInputValue(e.start)}"></label>
+        <label>End${e.end ? '' : ' (leave blank if still feeding)'}<input type="datetime-local" id="editEnd-${e.id}" value="${e.end ? toLocalInputValue(e.end) : ''}"></label>
+        <div class="edit-actions">
+          <button class="edit-save" data-id="${e.id}">Save</button>
+          <button class="edit-cancel">Cancel</button>
+        </div>
+      </div>
+    </div>`;
+  } else {
+    return `<div class="entry entry-editing">
+      <div class="edit-form">
+        <label>Time<input type="datetime-local" id="editTime-${e.id}" value="${toLocalInputValue(e.time)}"></label>
+        <div class="edit-actions">
+          <button class="edit-save" data-id="${e.id}">Save</button>
+          <button class="edit-cancel">Cancel</button>
+        </div>
+      </div>
+    </div>`;
+  }
 }
 
 function renderTable(){
@@ -346,16 +505,16 @@ function renderTable(){
     return;
   }
   const sorted = [...events].sort((a,b)=>{
-    const ta = new Date(a.type==='feed'?a.start:a.time);
-    const tb = new Date(b.type==='feed'?b.start:b.time);
+    const ta = new Date(eventTime(a));
+    const tb = new Date(eventTime(b));
     return tb - ta;
   });
   let rows = sorted.map(e=>{
-    const t = e.type==='feed' ? e.start : e.time;
+    const t = eventTime(e);
     const dateStr = new Date(t).toLocaleDateString([], {month:'short', day:'numeric'});
     const timeStr = fmtTime(t);
-    const typeLabel = e.type==='feed' ? 'Feeding' : (e.type==='pee' ? 'Pee' : 'Poop');
-    const durationCol = e.type==='feed' ? (e.end ? durationStr(e.start, e.end) : 'in progress') : '—';
+    const typeLabel = e.type==='feed' ? 'Feeding' : (e.type==='sleep' ? 'Sleep' : (e.type==='pee' ? 'Pee' : 'Poop'));
+    const durationCol = isTimedEvent(e.type) ? (e.end ? durationStr(e.start, e.end) : 'in progress') : '—';
     return `<tr>
       <td>${dateStr}</td>
       <td>${timeStr}</td>
@@ -371,17 +530,17 @@ function renderTable(){
 
 function exportCSV(){
   const sorted = [...events].sort((a,b)=>{
-    const ta = new Date(a.type==='feed'?a.start:a.time);
-    const tb = new Date(b.type==='feed'?b.start:b.time);
+    const ta = new Date(eventTime(a));
+    const tb = new Date(eventTime(b));
     return ta - tb;
   });
   let csv = 'Date,Time,Type,Duration\n';
   sorted.forEach(e=>{
-    const t = e.type==='feed' ? e.start : e.time;
+    const t = eventTime(e);
     const dateStr = new Date(t).toLocaleDateString();
     const timeStr = fmtTime(t);
-    const typeLabel = e.type==='feed' ? 'Feeding' : (e.type==='pee' ? 'Pee' : 'Poop');
-    const durationCol = e.type==='feed' ? (e.end ? durationStr(e.start, e.end) : 'in progress') : '';
+    const typeLabel = e.type==='feed' ? 'Feeding' : (e.type==='sleep' ? 'Sleep' : (e.type==='pee' ? 'Pee' : 'Poop'));
+    const durationCol = isTimedEvent(e.type) ? (e.end ? durationStr(e.start, e.end) : 'in progress') : '';
     csv += `${dateStr},${timeStr},${typeLabel},${durationCol}\n`;
   });
   const blob = new Blob([csv], {type:'text/csv'});
@@ -397,6 +556,7 @@ function exportCSV(){
 
 function renderAll(){
   updateFeedButton();
+  updateSleepButton();
   updateStats();
   renderTimeline();
   renderLog();
@@ -412,6 +572,19 @@ document.getElementById('feedBtn').addEventListener('click', async ()=>{
   } else {
     activeFeedStart = new Date().toISOString();
     await saveActiveFeed();
+  }
+  renderAll();
+});
+
+document.getElementById('sleepBtn').addEventListener('click', async ()=>{
+  if(activeSleepStart){
+    events.push({ id: 'e'+Date.now(), type:'sleep', start: activeSleepStart, end: new Date().toISOString() });
+    activeSleepStart = null;
+    await saveEvents();
+    await saveActiveSleep();
+  } else {
+    activeSleepStart = new Date().toISOString();
+    await saveActiveSleep();
   }
   renderAll();
 });
@@ -436,6 +609,11 @@ onSnapshot(eventsDocRef, (snap)=>{
 
 onSnapshot(activeFeedDocRef, (snap)=>{
   activeFeedStart = snap.exists() ? snap.data().start : null;
+  renderAll();
+}, (err)=>{ console.error(err); flashSync(false); });
+
+onSnapshot(activeSleepDocRef, (snap)=>{
+  activeSleepStart = snap.exists() ? snap.data().start : null;
   renderAll();
 }, (err)=>{ console.error(err); flashSync(false); });
 
