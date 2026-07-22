@@ -123,6 +123,40 @@
   .empty-state{text-align:center; padding:40px 20px; color:var(--ink-soft);}
   .empty-state .big{font-size:34px; margin-bottom:8px;}
   footer{text-align:center; font-size:11.5px; color:var(--ink-soft); margin-top:26px; line-height:1.5;}
+
+  .tag-panel{background:var(--bg-card); border:1px solid var(--line); border-radius:var(--radius); padding:14px; margin-bottom:22px;}
+  .tag-panel .tag-title{font-size:13px; font-weight:600; color:var(--ink-soft); margin-bottom:10px;}
+  .tag-chips{display:flex; gap:8px; flex-wrap:wrap;}
+  .tag-chip{
+    border:1px solid var(--line); background:var(--bg); color:var(--ink); font-family:'Inter',sans-serif;
+    font-size:13.5px; font-weight:600; padding:9px 14px; border-radius:20px; cursor:pointer;
+  }
+  .tag-chip:active{background:var(--feed-soft); border-color:var(--feed);}
+  .tag-chip.skip{margin-left:auto; color:var(--ink-soft); border:none; background:transparent; font-weight:500;}
+  .tag-amount-row{display:flex; gap:8px; align-items:center; margin-top:10px;}
+  .tag-amount-row input{flex:1; font-family:'Inter',sans-serif; font-size:14px; padding:8px 10px; border-radius:8px; border:1px solid var(--line);}
+  .tag-amount-row button{border:none; background:var(--feed); color:#fff; font-weight:600; padding:9px 16px; border-radius:8px; cursor:pointer;}
+
+  .toast{
+    position:fixed; left:50%; bottom:24px; transform:translateX(-50%) translateY(20px);
+    background:var(--ink); color:#fff; padding:12px 16px; border-radius:12px; font-size:13.5px;
+    display:flex; align-items:center; gap:14px; opacity:0; pointer-events:none; transition:all .25s ease;
+    box-shadow:0 8px 24px rgba(0,0,0,0.2); max-width:90vw; z-index:50;
+  }
+  .toast.show{opacity:1; transform:translateX(-50%) translateY(0); pointer-events:auto;}
+  .toast button{border:none; background:transparent; color:#8FB3F0; font-weight:700; font-size:13.5px; cursor:pointer; white-space:nowrap;}
+
+  .entry .note{font-size:12px; color:var(--ink-soft); margin-top:2px; font-style:italic;}
+  .entry .feed-detail{font-size:12px; color:var(--ink-soft); margin-top:1px;}
+  .edit-form textarea{font-family:'Inter',sans-serif; font-size:13.5px; padding:8px 10px; border-radius:8px; border:1px solid var(--line); resize:vertical; min-height:44px;}
+  .edit-form select{font-family:'Inter',sans-serif; font-size:14px; padding:8px 10px; border-radius:8px; border:1px solid var(--line); color:var(--ink); background:#fff;}
+
+  .summary-day{background:var(--bg-card); border:1px solid var(--line); border-radius:var(--radius); padding:14px 16px; margin-bottom:10px;}
+  .summary-day .summary-date{font-family:'Fraunces',serif; font-size:16px; font-weight:600; margin-bottom:8px;}
+  .summary-row{display:flex; justify-content:space-between; font-size:13.5px; padding:4px 0; border-top:1px solid var(--line);}
+  .summary-row:first-of-type{border-top:none;}
+  .summary-row .label{color:var(--ink-soft);}
+  .summary-row .val{font-weight:600;}
 </style>
 </head>
 <body>
@@ -166,6 +200,8 @@
     </span>
   </button>
 
+  <div id="tagPanel" style="display:none;"></div>
+
   <div class="row2">
     <button class="diaper-btn pee" id="peeBtn"><span class="icon">💛</span>Pee<span class="hint">log now</span></button>
     <button class="diaper-btn poop" id="poopBtn"><span class="icon">🟤</span>Poop<span class="hint">log now</span></button>
@@ -179,14 +215,18 @@
   <div class="view-toggle">
     <button class="toggle-btn active" id="listViewBtn">List</button>
     <button class="toggle-btn" id="tableViewBtn">Table</button>
+    <button class="toggle-btn" id="summaryViewBtn">Summary</button>
     <button class="toggle-btn export" id="exportBtn">Export CSV</button>
   </div>
 
   <div id="log"></div>
   <div id="tableView" style="display:none;"></div>
+  <div id="summaryView" style="display:none;"></div>
 
   <footer>Shared with both parents — updates sync automatically every few seconds.</footer>
 </div>
+
+<div id="toast" class="toast"></div>
 
 <script type="module">
 // ====== FIREBASE CONFIG — paste your project config here ======
@@ -214,6 +254,8 @@ let activeFeedStart = null;
 let feedTimerInterval = null;
 let activeSleepStart = null;
 let sleepTimerInterval = null;
+let tagPromptId = null;
+let toastTimeout = null;
 
 function isTimedEvent(type){ return type === 'feed' || type === 'sleep'; }
 function eventTime(e){ return isTimedEvent(e.type) ? e.start : e.time; }
@@ -424,7 +466,12 @@ function renderLog(){
       }
       html += `<div class="entry">
         <div class="badge ${e.type}">${icon}</div>
-        <div class="meta"><div class="type">${typeLabel}</div><div class="time">${timeLabel}</div></div>
+        <div class="meta">
+          <div class="type">${typeLabel}</div>
+          <div class="time">${timeLabel}</div>
+          ${e.type==='feed' && e.side ? `<div class="feed-detail">${e.side}${e.side==='Bottle' && e.amount ? ' · ' + e.amount + 'oz' : ''}</div>` : ''}
+          ${e.note ? `<div class="note">${escapeHtml(e.note)}</div>` : ''}
+        </div>
         <button class="edit" data-id="${e.id}" aria-label="Edit entry">✎</button>
         <button class="del" data-id="${e.id}" aria-label="Delete entry">✕</button>
       </div>`;
@@ -466,6 +513,15 @@ function renderLog(){
         const timeVal = document.getElementById('editTime-'+id).value;
         if(timeVal) ev.time = fromLocalInputValue(timeVal);
       }
+      if(ev.type === 'feed'){
+        const sideEl = document.getElementById('editSide-'+id);
+        const amountEl = document.getElementById('editAmount-'+id);
+        const sideVal = sideEl ? sideEl.value : '';
+        ev.side = sideVal || null;
+        ev.amount = (sideVal === 'Bottle' && amountEl && amountEl.value) ? parseFloat(amountEl.value) : null;
+      }
+      const noteEl = document.getElementById('editNote-'+id);
+      ev.note = (noteEl && noteEl.value.trim()) ? noteEl.value.trim() : null;
       editingId = null;
       await saveEvents();
       renderAll();
@@ -474,11 +530,24 @@ function renderLog(){
 }
 
 function renderEditForm(e){
+  const noteField = `<label>Note (optional)<textarea id="editNote-${e.id}" placeholder="e.g. fussy after this one">${e.note ? escapeHtml(e.note) : ''}</textarea></label>`;
+  const feedSideField = e.type === 'feed' ? `<label>Side / type
+      <select id="editSide-${e.id}">
+        <option value="" ${!e.side ? 'selected' : ''}>— not set —</option>
+        <option value="Left" ${e.side==='Left' ? 'selected' : ''}>Left</option>
+        <option value="Right" ${e.side==='Right' ? 'selected' : ''}>Right</option>
+        <option value="Both" ${e.side==='Both' ? 'selected' : ''}>Both</option>
+        <option value="Bottle" ${e.side==='Bottle' ? 'selected' : ''}>Bottle</option>
+      </select>
+    </label>
+    <label>Amount (oz, if bottle)<input type="number" min="0" step="0.5" id="editAmount-${e.id}" value="${e.amount != null ? e.amount : ''}"></label>` : '';
   if(isTimedEvent(e.type)){
     return `<div class="entry entry-editing">
       <div class="edit-form">
         <label>Start<input type="datetime-local" id="editStart-${e.id}" value="${toLocalInputValue(e.start)}"></label>
         <label>End${e.end ? '' : ' (leave blank if still feeding)'}<input type="datetime-local" id="editEnd-${e.id}" value="${e.end ? toLocalInputValue(e.end) : ''}"></label>
+        ${feedSideField}
+        ${noteField}
         <div class="edit-actions">
           <button class="edit-save" data-id="${e.id}">Save</button>
           <button class="edit-cancel">Cancel</button>
@@ -489,6 +558,7 @@ function renderEditForm(e){
     return `<div class="entry entry-editing">
       <div class="edit-form">
         <label>Time<input type="datetime-local" id="editTime-${e.id}" value="${toLocalInputValue(e.time)}"></label>
+        ${noteField}
         <div class="edit-actions">
           <button class="edit-save" data-id="${e.id}">Save</button>
           <button class="edit-cancel">Cancel</button>
@@ -496,6 +566,11 @@ function renderEditForm(e){
       </div>
     </div>`;
   }
+}
+function escapeHtml(str){
+  const d = document.createElement('div');
+  d.textContent = str;
+  return d.innerHTML;
 }
 
 function renderTable(){
@@ -515,17 +590,64 @@ function renderTable(){
     const timeStr = fmtTime(t);
     const typeLabel = e.type==='feed' ? 'Feeding' : (e.type==='sleep' ? 'Sleep' : (e.type==='pee' ? 'Pee' : 'Poop'));
     const durationCol = isTimedEvent(e.type) ? (e.end ? durationStr(e.start, e.end) : 'in progress') : '—';
+    const detailBits = [];
+    if(e.type==='feed' && e.side) detailBits.push(e.side + (e.side==='Bottle' && e.amount ? ' ' + e.amount + 'oz' : ''));
+    if(e.note) detailBits.push(e.note);
+    const detailCol = detailBits.length ? escapeHtml(detailBits.join(' · ')) : '—';
     return `<tr>
       <td>${dateStr}</td>
       <td>${timeStr}</td>
       <td class="type-${e.type}">${typeLabel}</td>
       <td>${durationCol}</td>
+      <td>${detailCol}</td>
     </tr>`;
   }).join('');
   tableEl.innerHTML = `<div class="table-wrap"><table class="log-table">
-    <thead><tr><th>Date</th><th>Time</th><th>Type</th><th>Duration</th></tr></thead>
+    <thead><tr><th>Date</th><th>Time</th><th>Type</th><th>Duration</th><th>Details</th></tr></thead>
     <tbody>${rows}</tbody>
   </table></div>`;
+}
+
+function renderSummary(){
+  const summaryEl = document.getElementById('summaryView');
+  if(!events.length){
+    summaryEl.innerHTML = '<div class="empty-state"><div class="big">📊</div>Nothing to summarize yet.</div>';
+    return;
+  }
+  const groups = {};
+  events.forEach(e=>{
+    const dayKey = new Date(eventTime(e)).toDateString();
+    if(!groups[dayKey]) groups[dayKey] = [];
+    groups[dayKey].push(e);
+  });
+  const dayKeys = Object.keys(groups).sort((a,b)=> new Date(b) - new Date(a));
+  let html = '';
+  dayKeys.forEach(dayKey=>{
+    const items = groups[dayKey];
+    const feeds = items.filter(e=>e.type==='feed');
+    const sleeps = items.filter(e=>e.type==='sleep');
+    const pees = items.filter(e=>e.type==='pee').length;
+    const poops = items.filter(e=>e.type==='poop').length;
+
+    const feedCount = feeds.length;
+    const bottleOz = feeds.filter(f=>f.side==='Bottle' && f.amount).reduce((sum,f)=>sum+f.amount, 0);
+    let feedDetail = feedCount + (feedCount===1 ? ' feed' : ' feeds');
+    if(bottleOz > 0) feedDetail += ' · ' + bottleOz + 'oz bottle total';
+
+    const totalSleepMs = sleeps.reduce((sum,s)=> s.end ? sum + (new Date(s.end)-new Date(s.start)) : sum, 0);
+    const sleepHrs = Math.floor(totalSleepMs/3600000);
+    const sleepMins = Math.round((totalSleepMs%3600000)/60000);
+    const sleepDetail = sleeps.length ? (sleepHrs + 'h ' + sleepMins + 'm total (' + sleeps.length + (sleeps.length===1?' session':' sessions') + ')') : 'none logged';
+
+    html += `<div class="summary-day">
+      <div class="summary-date">${fmtDateLabel(dayKey)}</div>
+      <div class="summary-row"><span class="label">🍼 Feeding</span><span class="val">${feedDetail}</span></div>
+      <div class="summary-row"><span class="label">😴 Sleep</span><span class="val">${sleepDetail}</span></div>
+      <div class="summary-row"><span class="label">💛 Pee</span><span class="val">${pees}</span></div>
+      <div class="summary-row"><span class="label">🟤 Poop</span><span class="val">${poops}</span></div>
+    </div>`;
+  });
+  summaryEl.innerHTML = html;
 }
 
 function exportCSV(){
@@ -534,14 +656,18 @@ function exportCSV(){
     const tb = new Date(eventTime(b));
     return ta - tb;
   });
-  let csv = 'Date,Time,Type,Duration\n';
+  const csvEscape = s => '"' + String(s).replace(/"/g,'""') + '"';
+  let csv = 'Date,Time,Type,Duration,Side,Amount (oz),Note\n';
   sorted.forEach(e=>{
     const t = eventTime(e);
     const dateStr = new Date(t).toLocaleDateString();
     const timeStr = fmtTime(t);
     const typeLabel = e.type==='feed' ? 'Feeding' : (e.type==='sleep' ? 'Sleep' : (e.type==='pee' ? 'Pee' : 'Poop'));
     const durationCol = isTimedEvent(e.type) ? (e.end ? durationStr(e.start, e.end) : 'in progress') : '';
-    csv += `${dateStr},${timeStr},${typeLabel},${durationCol}\n`;
+    const sideCol = e.type==='feed' && e.side ? e.side : '';
+    const amountCol = e.type==='feed' && e.side==='Bottle' && e.amount != null ? e.amount : '';
+    const noteCol = e.note || '';
+    csv += [dateStr, timeStr, typeLabel, durationCol, sideCol, amountCol, csvEscape(noteCol)].join(',') + '\n';
   });
   const blob = new Blob([csv], {type:'text/csv'});
   const url = URL.createObjectURL(blob);
@@ -561,14 +687,19 @@ function renderAll(){
   renderTimeline();
   renderLog();
   renderTable();
+  renderSummary();
+  renderTagPanel();
 }
 
 document.getElementById('feedBtn').addEventListener('click', async ()=>{
   if(activeFeedStart){
-    events.push({ id: 'e'+Date.now(), type:'feed', start: activeFeedStart, end: new Date().toISOString() });
+    const newId = 'e'+Date.now();
+    events.push({ id: newId, type:'feed', start: activeFeedStart, end: new Date().toISOString() });
     activeFeedStart = null;
     await saveEvents();
     await saveActiveFeed();
+    tagPromptId = newId;
+    showToast('Feeding logged', newId);
   } else {
     activeFeedStart = new Date().toISOString();
     await saveActiveFeed();
@@ -578,10 +709,12 @@ document.getElementById('feedBtn').addEventListener('click', async ()=>{
 
 document.getElementById('sleepBtn').addEventListener('click', async ()=>{
   if(activeSleepStart){
-    events.push({ id: 'e'+Date.now(), type:'sleep', start: activeSleepStart, end: new Date().toISOString() });
+    const newId = 'e'+Date.now();
+    events.push({ id: newId, type:'sleep', start: activeSleepStart, end: new Date().toISOString() });
     activeSleepStart = null;
     await saveEvents();
     await saveActiveSleep();
+    showToast('Sleep logged', newId);
   } else {
     activeSleepStart = new Date().toISOString();
     await saveActiveSleep();
@@ -590,15 +723,87 @@ document.getElementById('sleepBtn').addEventListener('click', async ()=>{
 });
 
 document.getElementById('peeBtn').addEventListener('click', async ()=>{
-  events.push({ id:'e'+Date.now(), type:'pee', time: new Date().toISOString() });
+  const newId = 'e'+Date.now();
+  events.push({ id:newId, type:'pee', time: new Date().toISOString() });
   await saveEvents();
+  showToast('Pee logged', newId);
   renderAll();
 });
 document.getElementById('poopBtn').addEventListener('click', async ()=>{
-  events.push({ id:'e'+Date.now(), type:'poop', time: new Date().toISOString() });
+  const newId = 'e'+Date.now();
+  events.push({ id:newId, type:'poop', time: new Date().toISOString() });
   await saveEvents();
+  showToast('Poop logged', newId);
   renderAll();
 });
+
+function showToast(message, undoId){
+  const toast = document.getElementById('toast');
+  toast.innerHTML = `<span>${message}</span><button id="toastUndo">Undo</button>`;
+  toast.classList.add('show');
+  document.getElementById('toastUndo').addEventListener('click', async ()=>{
+    events = events.filter(e=>e.id !== undoId);
+    if(tagPromptId === undoId) tagPromptId = null;
+    await saveEvents();
+    hideToast();
+    renderAll();
+  });
+  if(toastTimeout) clearTimeout(toastTimeout);
+  toastTimeout = setTimeout(hideToast, 6000);
+}
+function hideToast(){
+  document.getElementById('toast').classList.remove('show');
+}
+
+function renderTagPanel(){
+  const panel = document.getElementById('tagPanel');
+  if(!tagPromptId){ panel.style.display = 'none'; panel.innerHTML=''; return; }
+  const ev = events.find(e=>e.id === tagPromptId);
+  if(!ev){ tagPromptId = null; panel.style.display = 'none'; return; }
+  panel.style.display = '';
+  panel.innerHTML = `<div class="tag-panel">
+    <div class="tag-title">Tag that feed</div>
+    <div class="tag-chips">
+      <button class="tag-chip" data-side="Left">Left</button>
+      <button class="tag-chip" data-side="Right">Right</button>
+      <button class="tag-chip" data-side="Both">Both</button>
+      <button class="tag-chip" data-side="Bottle">Bottle</button>
+      <button class="tag-chip skip" id="tagSkip">Skip</button>
+    </div>
+    <div class="tag-amount-row" id="tagAmountRow" style="display:none;">
+      <input type="number" min="0" step="0.5" id="tagAmountInput" placeholder="oz">
+      <button id="tagAmountSave">Save</button>
+    </div>
+  </div>`;
+  panel.querySelectorAll('.tag-chip[data-side]').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const side = btn.getAttribute('data-side');
+      if(side === 'Bottle'){
+        document.getElementById('tagAmountRow').style.display = 'flex';
+        return;
+      }
+      ev.side = side;
+      tagPromptId = null;
+      await saveEvents();
+      renderAll();
+    });
+  });
+  document.getElementById('tagSkip').addEventListener('click', ()=>{
+    tagPromptId = null;
+    renderAll();
+  });
+  const amountSaveBtn = document.getElementById('tagAmountSave');
+  if(amountSaveBtn){
+    amountSaveBtn.addEventListener('click', async ()=>{
+      const val = document.getElementById('tagAmountInput').value;
+      ev.side = 'Bottle';
+      if(val) ev.amount = parseFloat(val);
+      tagPromptId = null;
+      await saveEvents();
+      renderAll();
+    });
+  }
+}
 
 // Realtime listeners — updates from either phone appear within ~1 second, no polling needed
 onSnapshot(eventsDocRef, (snap)=>{
@@ -617,18 +822,17 @@ onSnapshot(activeSleepDocRef, (snap)=>{
   renderAll();
 }, (err)=>{ console.error(err); flashSync(false); });
 
-document.getElementById('listViewBtn').addEventListener('click', ()=>{
-  document.getElementById('listViewBtn').classList.add('active');
-  document.getElementById('tableViewBtn').classList.remove('active');
-  document.getElementById('log').style.display = '';
-  document.getElementById('tableView').style.display = 'none';
-});
-document.getElementById('tableViewBtn').addEventListener('click', ()=>{
-  document.getElementById('tableViewBtn').classList.add('active');
-  document.getElementById('listViewBtn').classList.remove('active');
-  document.getElementById('log').style.display = 'none';
-  document.getElementById('tableView').style.display = '';
-});
+function setActiveView(view){
+  const views = { list: 'log', table: 'tableView', summary: 'summaryView' };
+  const btns = { list: 'listViewBtn', table: 'tableViewBtn', summary: 'summaryViewBtn' };
+  Object.keys(views).forEach(key=>{
+    document.getElementById(views[key]).style.display = key === view ? '' : 'none';
+    document.getElementById(btns[key]).classList.toggle('active', key === view);
+  });
+}
+document.getElementById('listViewBtn').addEventListener('click', ()=> setActiveView('list'));
+document.getElementById('tableViewBtn').addEventListener('click', ()=> setActiveView('table'));
+document.getElementById('summaryViewBtn').addEventListener('click', ()=> setActiveView('summary'));
 document.getElementById('exportBtn').addEventListener('click', exportCSV);
 
 </script>
