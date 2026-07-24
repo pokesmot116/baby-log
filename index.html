@@ -40,6 +40,23 @@
   .sync-dot{display:flex; align-items:center; gap:6px; font-size:12px; color:var(--ink-soft);}
   .sync-dot span.led{width:7px; height:7px; border-radius:50%; background:var(--good); display:inline-block; transition:opacity .3s;}
 
+  .next-feed-card{
+    background:var(--feed-soft); border:1px solid #EFD4A6; border-radius:var(--radius);
+    padding:14px 16px; margin-bottom:14px; display:flex; align-items:center; justify-content:space-between; gap:10px;
+  }
+  .next-feed-card.overdue{background:#FBE2DC; border-color:#EFB5A6;}
+  .next-feed-card.active{background:var(--feed-soft); border-color:#EFD4A6;}
+  .next-feed-card .nf-label{font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); font-weight:600;}
+  .next-feed-card .nf-value{font-family:'Fraunces',serif; font-size:19px; font-weight:600; margin-top:2px;}
+  .next-feed-card .nf-sub{font-size:12px; color:var(--ink-soft); margin-top:1px;}
+  .next-feed-card .nf-interval{
+    font-size:12px; color:var(--ink-soft); background:rgba(255,255,255,0.6); border:none;
+    padding:6px 10px; border-radius:20px; cursor:pointer; white-space:nowrap; font-family:'Inter',sans-serif; font-weight:600;
+  }
+  .interval-edit{display:flex; align-items:center; gap:6px;}
+  .interval-edit input{width:48px; font-family:'Inter',sans-serif; font-size:13px; padding:6px 8px; border-radius:8px; border:1px solid var(--line);}
+  .interval-edit button{border:none; background:var(--feed); color:#fff; font-weight:600; font-size:12px; padding:6px 10px; border-radius:8px; cursor:pointer;}
+
   .stats{display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin-bottom:16px;}
   .stat{background:var(--bg-card); border-radius:var(--radius); padding:12px 10px; border:1px solid var(--line);}
   .stat .label{font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); font-weight:600;}
@@ -174,6 +191,8 @@
     <div class="sync-dot"><span class="led" id="syncLed"></span><span id="syncText">synced</span></div>
   </header>
 
+  <div class="next-feed-card" id="nextFeedCard"></div>
+
   <div class="stats">
     <div class="stat">
       <div class="label">Last feeding</div>
@@ -256,6 +275,7 @@ const db = getFirestore(app);
 const eventsDocRef = doc(db, "babyLog", "events");
 const activeFeedDocRef = doc(db, "babyLog", "activeFeed");
 const activeSleepDocRef = doc(db, "babyLog", "activeSleep");
+const settingsDocRef = doc(db, "babyLog", "settings");
 
 let events = [];
 let activeFeedStart = null;
@@ -263,6 +283,8 @@ let feedTimerInterval = null;
 let activeSleepStart = null;
 let sleepTimerInterval = null;
 let tagPromptId = null;
+let feedIntervalHours = 3;
+let editingInterval = false;
 let toastTimeout = null;
 
 function isTimedEvent(type){ return type === 'feed' || type === 'sleep'; }
@@ -324,6 +346,12 @@ async function saveActiveSleep(){
     flashSync(true);
   }catch(e){ flashSync(false); console.error(e); }
 }
+async function saveSettings(){
+  try{
+    await setDoc(settingsDocRef, { feedIntervalHours });
+    flashSync(true);
+  }catch(e){ flashSync(false); console.error(e); }
+}
 function flashSync(ok){
   const led = document.getElementById('syncLed');
   const text = document.getElementById('syncText');
@@ -379,6 +407,62 @@ function updateSleepButton(){
     timer.textContent = '';
     if(sleepTimerInterval){ clearInterval(sleepTimerInterval); sleepTimerInterval = null; }
   }
+}
+
+function fmtCountdown(ms){
+  const mins = Math.round(Math.abs(ms)/60000);
+  const h = Math.floor(mins/60);
+  const m = mins%60;
+  return (h>0 ? h+'h ' : '') + m+'m';
+}
+
+function renderNextFeedCard(){
+  const card = document.getElementById('nextFeedCard');
+  if(editingInterval){
+    card.className = 'next-feed-card active';
+    card.innerHTML = `<div style="width:100%;">
+      <div class="nf-label">Feeding reminder interval</div>
+      <div class="interval-edit" style="margin-top:8px;">
+        <input type="number" min="1" max="12" step="0.5" id="intervalInput" value="${feedIntervalHours}">
+        <span style="font-size:12px; color:var(--ink-soft);">hours</span>
+        <button id="intervalSave">Save</button>
+      </div>
+    </div>`;
+    document.getElementById('intervalSave').addEventListener('click', async ()=>{
+      const val = parseFloat(document.getElementById('intervalInput').value);
+      if(val && val > 0) feedIntervalHours = val;
+      editingInterval = false;
+      await saveSettings();
+      renderAll();
+    });
+    return;
+  }
+
+  const intervalControl = `<button class="nf-interval" id="editIntervalBtn">every ${feedIntervalHours}h ✎</button>`;
+
+  if(activeFeedStart){
+    card.className = 'next-feed-card active';
+    card.innerHTML = `<div><div class="nf-label">Feeding now</div><div class="nf-value">In progress</div></div>${intervalControl}`;
+  } else {
+    const feeds = events.filter(e=>e.type==='feed' && e.end).sort((a,b)=> new Date(b.end)-new Date(a.end));
+    if(!feeds.length){
+      card.className = 'next-feed-card';
+      card.innerHTML = `<div><div class="nf-label">Next feeding</div><div class="nf-value">Log a feed to start predicting</div></div>${intervalControl}`;
+    } else {
+      const lastEnd = new Date(feeds[0].end);
+      const predicted = new Date(lastEnd.getTime() + feedIntervalHours*3600000);
+      const diff = predicted - Date.now();
+      const overdue = diff < 0;
+      card.className = 'next-feed-card' + (overdue ? ' overdue' : '');
+      card.innerHTML = `<div>
+        <div class="nf-label">${overdue ? 'Feeding overdue' : 'Next feeding'}</div>
+        <div class="nf-value">${fmtTime(predicted.toISOString())}</div>
+        <div class="nf-sub">${overdue ? 'overdue by ' + fmtCountdown(diff) : 'in ' + fmtCountdown(diff)}</div>
+      </div>${intervalControl}`;
+    }
+  }
+  const editBtn = document.getElementById('editIntervalBtn');
+  if(editBtn) editBtn.addEventListener('click', ()=>{ editingInterval = true; renderNextFeedCard(); });
 }
 
 function updateStats(){
@@ -692,6 +776,7 @@ function renderAll(){
   updateFeedButton();
   updateSleepButton();
   updateStats();
+  renderNextFeedCard();
   renderTimeline();
   renderLog();
   renderTable();
@@ -829,6 +914,16 @@ onSnapshot(activeSleepDocRef, (snap)=>{
   activeSleepStart = snap.exists() ? snap.data().start : null;
   renderAll();
 }, (err)=>{ console.error(err); flashSync(false); });
+
+onSnapshot(settingsDocRef, (snap)=>{
+  if(snap.exists() && snap.data().feedIntervalHours){
+    feedIntervalHours = snap.data().feedIntervalHours;
+  }
+  renderNextFeedCard();
+}, (err)=>{ console.error(err); flashSync(false); });
+
+// Keep the "next feeding" countdown current even with no new events
+setInterval(()=>{ if(!editingInterval) renderNextFeedCard(); }, 60000);
 
 function setActiveView(view){
   const views = { list: 'log', table: 'tableView', summary: 'summaryView' };
