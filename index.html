@@ -416,8 +416,11 @@ function fmtCountdown(ms){
   return (h>0 ? h+'h ' : '') + m+'m';
 }
 
+let lastIntervalEditState = false;
 function renderNextFeedCard(){
   const card = document.getElementById('nextFeedCard');
+  if(editingInterval && lastIntervalEditState) return; // editor already open — don't wipe unsaved typing
+  lastIntervalEditState = editingInterval;
   if(editingInterval){
     card.className = 'next-feed-card active';
     card.innerHTML = `<div style="width:100%;">
@@ -507,6 +510,7 @@ function renderTimeline(){
 }
 
 let editingId = null;
+let lastEditRenderId = null;
 
 function toLocalInputValue(iso){
   const d = new Date(iso);
@@ -519,6 +523,12 @@ function fromLocalInputValue(str){
 
 function renderLog(){
   const logEl = document.getElementById('log');
+  if(editingId !== null){
+    if(lastEditRenderId === editingId) return; // form already open — don't wipe unsaved typing
+    lastEditRenderId = editingId;
+  } else {
+    lastEditRenderId = null;
+  }
   if(!events.length){
     logEl.innerHTML = '<div class="empty-state"><div class="big">🍼</div>Nothing logged yet.<br>Tap a button above to start.</div>';
     return;
@@ -786,7 +796,7 @@ function renderAll(){
 
 document.getElementById('feedBtn').addEventListener('click', async ()=>{
   if(activeFeedStart){
-    const newId = 'e'+Date.now();
+    const newId = 'e'+Date.now()+'-'+Math.random().toString(36).slice(2,8);
     events.push({ id: newId, type:'feed', start: activeFeedStart, end: new Date().toISOString() });
     activeFeedStart = null;
     await saveEvents();
@@ -802,7 +812,7 @@ document.getElementById('feedBtn').addEventListener('click', async ()=>{
 
 document.getElementById('sleepBtn').addEventListener('click', async ()=>{
   if(activeSleepStart){
-    const newId = 'e'+Date.now();
+    const newId = 'e'+Date.now()+'-'+Math.random().toString(36).slice(2,8);
     events.push({ id: newId, type:'sleep', start: activeSleepStart, end: new Date().toISOString() });
     activeSleepStart = null;
     await saveEvents();
@@ -816,14 +826,14 @@ document.getElementById('sleepBtn').addEventListener('click', async ()=>{
 });
 
 document.getElementById('peeBtn').addEventListener('click', async ()=>{
-  const newId = 'e'+Date.now();
+  const newId = 'e'+Date.now()+'-'+Math.random().toString(36).slice(2,8);
   events.push({ id:newId, type:'pee', time: new Date().toISOString() });
   await saveEvents();
   showToast('Pee logged', newId);
   renderAll();
 });
 document.getElementById('poopBtn').addEventListener('click', async ()=>{
-  const newId = 'e'+Date.now();
+  const newId = 'e'+Date.now()+'-'+Math.random().toString(36).slice(2,8);
   events.push({ id:newId, type:'poop', time: new Date().toISOString() });
   await saveEvents();
   showToast('Poop logged', newId);
@@ -848,8 +858,11 @@ function hideToast(){
   document.getElementById('toast').classList.remove('show');
 }
 
+let lastTagRenderId;
 function renderTagPanel(){
   const panel = document.getElementById('tagPanel');
+  if(tagPromptId === lastTagRenderId) return; // nothing changed — don't wipe an in-progress bottle amount
+  lastTagRenderId = tagPromptId;
   if(!tagPromptId){ panel.style.display = 'none'; panel.innerHTML=''; return; }
   const ev = events.find(e=>e.id === tagPromptId);
   if(!ev){ tagPromptId = null; panel.style.display = 'none'; return; }
