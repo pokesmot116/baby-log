@@ -180,7 +180,14 @@
   .summary-row{display:flex; justify-content:space-between; font-size:13.5px; padding:4px 0; border-top:1px solid var(--line);}
   .summary-row:first-of-type{border-top:none;}
   .summary-row .label{color:var(--ink-soft);}
-  .summary-row .val{font-weight:600;}
+  .summary-row .val{font-weight:600; display:flex; align-items:center; gap:6px;}
+  .summary-day.milestone{background:var(--feed-soft); border-color:#EFD4A6;}
+  .side-bar{height:8px; border-radius:4px; background:var(--sleep-soft); overflow:hidden; margin:2px 0 8px;}
+  .side-bar-left{height:100%; background:var(--feed);}
+  .delta{font-size:11px; font-weight:700; padding:1px 6px; border-radius:8px;}
+  .delta.up{color:#8A5A1E; background:#F3DCB4;}
+  .delta.down{color:#3D6B4F; background:#D5E8DC;}
+  .delta.flat{color:var(--ink-soft); background:var(--line);}
 </style>
 </head>
 <body>
@@ -311,13 +318,44 @@ function ago(iso){
   const remMins = mins % 60;
   return hrs + 'h ' + remMins + 'm ago';
 }
-function durationStr(startIso, endIso){
-  const ms = new Date(endIso) - new Date(startIso);
+function fmtMsDuration(ms){
   const mins = Math.round(ms/60000);
   if(mins < 1) return '<1 min';
   if(mins < 60) return mins + ' min';
   const h = Math.floor(mins/60), m = mins%60;
   return h + 'h ' + m + 'm';
+}
+function durationStr(startIso, endIso){
+  return fmtMsDuration(new Date(endIso) - new Date(startIso));
+}
+// Splits a [start,end) interval into daytime (7am-7pm) vs nighttime
+// milliseconds, correctly handling sessions that cross the boundary
+// or run past midnight.
+function splitDayNight(start, end){
+  let day = 0, night = 0;
+  let cursor = new Date(start);
+  const stop = new Date(end);
+  let guard = 0;
+  while(cursor < stop && guard < 100){
+    guard++;
+    const y = cursor.getFullYear(), m = cursor.getMonth(), d = cursor.getDate();
+    const dayStart = new Date(y, m, d, 7, 0, 0);
+    const dayEnd = new Date(y, m, d, 19, 0, 0);
+    let segEnd;
+    if(cursor < dayStart){
+      segEnd = new Date(Math.min(dayStart.getTime(), stop.getTime()));
+      night += segEnd - cursor;
+    } else if(cursor < dayEnd){
+      segEnd = new Date(Math.min(dayEnd.getTime(), stop.getTime()));
+      day += segEnd - cursor;
+    } else {
+      const nextDayStart = new Date(y, m, d+1, 7, 0, 0);
+      segEnd = new Date(Math.min(nextDayStart.getTime(), stop.getTime()));
+      night += segEnd - cursor;
+    }
+    cursor = segEnd;
+  }
+  return { day, night };
 }
 
 async function saveEvents(){
@@ -723,7 +761,65 @@ function renderSummary(){
     groups[dayKey].push(e);
   });
   const dayKeys = Object.keys(groups).sort((a,b)=> new Date(b) - new Date(a));
-  let html = '';
+
+  // ---- Milestone: longest sleep stretch ever ----
+  const completedSleeps = events.filter(e=>e.type==='sleep' && e.end);
+  let milestonesHtml = '';
+  if(completedSleeps.length){
+    const longest = completedSleeps.reduce((best,s)=>{
+      const ms = new Date(s.end) - new Date(s.start);
+      return ms > best.ms ? {ms, s} : best;
+    }, {ms:0, s:null});
+    milestonesHtml += `<div class="summary-day milestone">
+      <div class="summary-date">🏆 Longest sleep stretch</div>
+      <div class="summary-row" style="border-top:none;"><span class="label">${fmtDateLabel(longest.s.start)}, ${fmtTime(longest.s.start)}</span><span class="val">${fmtMsDuration(longest.ms)}</span></div>
+    </div>`;
+  }
+
+  // ---- Milestone: feed side balance (breastfeeding only, Left/Right entries) ----
+  const sidedFeeds = events.filter(e=>e.type==='feed' && e.end && (e.side==='Left' || e.side==='Right'));
+  if(sidedFeeds.length){
+    let leftMs = 0, rightMs = 0;
+    sidedFeeds.forEach(f=>{
+      const ms = new Date(f.end) - new Date(f.start);
+      if(f.side==='Left') leftMs += ms; else rightMs += ms;
+    });
+    const totalMs = leftMs + rightMs;
+    const leftPct = Math.round((leftMs/totalMs)*100);
+    milestonesHtml += `<div class="summary-day milestone">
+      <div class="summary-date">⚖️ Feed side balance</div>
+      <div class="side-bar"><div class="side-bar-left" style="width:${leftPct}%;"></div></div>
+      <div class="summary-row" style="border-top:none;"><span class="label">Left · ${fmtMsDuration(leftMs)}</span><span class="val">Right · ${fmtMsDuration(rightMs)}</span></div>
+    </div>`;
+  }
+
+  // ---- Today vs. yesterday ----
+  const todayKey = new Date().toDateString();
+  const yestKey = new Date(Date.now() - 86400000).toDateString();
+  const todayItems = groups[todayKey] || [];
+  const yestItems = groups[yestKey] || [];
+  function tally(items){
+    const feeds = items.filter(e=>e.type==='feed').length;
+    const sleepMs = items.filter(e=>e.type==='sleep' && e.end).reduce((sum,s)=> sum + (new Date(s.end)-new Date(s.start)), 0);
+    const diapers = items.filter(e=>e.type==='pee'||e.type==='poop').length;
+    return { feeds, sleepMs, diapers };
+  }
+  function deltaArrow(diff){
+    if(diff > 0) return `<span class="delta up">▲${diff}</span>`;
+    if(diff < 0) return `<span class="delta down">▼${Math.abs(diff)}</span>`;
+    return `<span class="delta flat">—</span>`;
+  }
+  if(todayItems.length || yestItems.length){
+    const t = tally(todayItems), y = tally(yestItems);
+    milestonesHtml += `<div class="summary-day milestone">
+      <div class="summary-date">📈 Today vs. yesterday</div>
+      <div class="summary-row" style="border-top:none;"><span class="label">🍼 Feeds</span><span class="val">${t.feeds} ${deltaArrow(t.feeds - y.feeds)}</span></div>
+      <div class="summary-row"><span class="label">😴 Sleep</span><span class="val">${fmtMsDuration(t.sleepMs)} ${deltaArrow(Math.round((t.sleepMs-y.sleepMs)/60000))}</span></div>
+      <div class="summary-row"><span class="label">💧 Diapers</span><span class="val">${t.diapers} ${deltaArrow(t.diapers - y.diapers)}</span></div>
+    </div>`;
+  }
+
+  let html = milestonesHtml;
   dayKeys.forEach(dayKey=>{
     const items = groups[dayKey];
     const feeds = items.filter(e=>e.type==='feed');
@@ -737,14 +833,24 @@ function renderSummary(){
     if(bottleOz > 0) feedDetail += ' · ' + bottleOz + 'oz bottle total';
 
     const totalSleepMs = sleeps.reduce((sum,s)=> s.end ? sum + (new Date(s.end)-new Date(s.start)) : sum, 0);
-    const sleepHrs = Math.floor(totalSleepMs/3600000);
-    const sleepMins = Math.round((totalSleepMs%3600000)/60000);
-    const sleepDetail = sleeps.length ? (sleepHrs + 'h ' + sleepMins + 'm total (' + sleeps.length + (sleeps.length===1?' session':' sessions') + ')') : 'none logged';
+    let sleepDetail = 'none logged';
+    if(sleeps.length){
+      sleepDetail = fmtMsDuration(totalSleepMs) + ' total (' + sleeps.length + (sleeps.length===1?' session':' sessions') + ')';
+    }
+    const split = sleeps.filter(s=>s.end).reduce((acc,s)=>{
+      const d = splitDayNight(s.start, s.end);
+      acc.day += d.day; acc.night += d.night;
+      return acc;
+    }, {day:0, night:0});
+    const splitDetail = (split.day+split.night) > 0
+      ? `☀️ ${fmtMsDuration(split.day)} · 🌙 ${fmtMsDuration(split.night)}`
+      : null;
 
     html += `<div class="summary-day">
       <div class="summary-date">${fmtDateLabel(dayKey)}</div>
-      <div class="summary-row"><span class="label">🍼 Feeding</span><span class="val">${feedDetail}</span></div>
+      <div class="summary-row" style="border-top:none;"><span class="label">🍼 Feeding</span><span class="val">${feedDetail}</span></div>
       <div class="summary-row"><span class="label">😴 Sleep</span><span class="val">${sleepDetail}</span></div>
+      ${splitDetail ? `<div class="summary-row"><span class="label">Day / night</span><span class="val">${splitDetail}</span></div>` : ''}
       <div class="summary-row"><span class="label">💛 Pee</span><span class="val">${pees}</span></div>
       <div class="summary-row"><span class="label">🟤 Poop</span><span class="val">${poops}</span></div>
     </div>`;
