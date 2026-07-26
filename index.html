@@ -444,13 +444,13 @@ function renderNextFeedCard(){
     card.className = 'next-feed-card active';
     card.innerHTML = `<div><div class="nf-label">Feeding now</div><div class="nf-value">In progress</div></div>${intervalControl}`;
   } else {
-    const feeds = events.filter(e=>e.type==='feed' && e.end).sort((a,b)=> new Date(b.end)-new Date(a.end));
+    const feeds = events.filter(e=>e.type==='feed').sort((a,b)=> new Date(b.start)-new Date(a.start));
     if(!feeds.length){
       card.className = 'next-feed-card';
       card.innerHTML = `<div><div class="nf-label">Next feeding</div><div class="nf-value">Log a feed to start predicting</div></div>${intervalControl}`;
     } else {
-      const lastEnd = new Date(feeds[0].end);
-      const predicted = new Date(lastEnd.getTime() + feedIntervalHours*3600000);
+      const lastStart = new Date(feeds[0].start);
+      const predicted = new Date(lastStart.getTime() + feedIntervalHours*3600000);
       const diff = predicted - Date.now();
       const overdue = diff < 0;
       card.className = 'next-feed-card' + (overdue ? ' overdue' : '');
