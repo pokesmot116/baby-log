@@ -114,13 +114,15 @@
 
   .log-day{margin-bottom:6px;}
 
-  .view-toggle{display:flex; gap:8px; margin-bottom:14px;}
+  .view-toggle{display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap;}
   .toggle-btn{
     border:1px solid var(--line); background:var(--bg-card); color:var(--ink-soft); font-family:'Inter',sans-serif;
     font-size:13px; font-weight:600; padding:8px 14px; border-radius:10px; cursor:pointer;
   }
   .toggle-btn.active{background:var(--ink); color:#fff; border-color:var(--ink);}
-  .toggle-btn.export{margin-left:auto; color:var(--good); border-color:var(--good);}
+  .toggle-btn.export{color:var(--good); border-color:var(--good);}
+  .toggle-btn.print{color:var(--sleep); border-color:var(--sleep);}
+  .print-only{display:none;}
 
   .table-wrap{background:var(--bg-card); border:1px solid var(--line); border-radius:var(--radius); overflow-x:auto;}
   table.log-table{width:100%; border-collapse:collapse; font-size:13.5px; white-space:nowrap;}
@@ -204,17 +206,30 @@
   .delta.up{color:#8A5A1E; background:#F3DCB4;}
   .delta.down{color:#3D6B4F; background:#D5E8DC;}
   .delta.flat{color:var(--ink-soft); background:var(--line);}
+  @media print {
+    .no-print{ display:none !important; }
+    .print-only{ display:block !important; }
+    #summaryView{ display:block !important; }
+    html,body{ background:#fff; }
+    .wrap{ max-width:100%; padding:0; }
+    .summary-day{ background:#fff !important; border:1px solid #ccc !important; box-shadow:none !important; break-inside:avoid; }
+    .summary-day.milestone{ background:#fff !important; border:1.5px solid #999 !important; }
+    .side-bar{ border:1px solid #ccc; }
+    .side-bar-left{ background:#999 !important; }
+    .delta{ background:none !important; border:1px solid #999; }
+    .delta.up, .delta.down, .delta.flat{ color:#333 !important; }
+  }
 </style>
 </head>
 <body>
-<div id="pullIndicator" class="pull-indicator">↓ Pull to refresh</div>
+<div id="pullIndicator" class="pull-indicator no-print">↓ Pull to refresh</div>
 <div class="wrap">
-  <header>
+  <header class="no-print">
     <h1>Baby Tracker</h1>
     <div class="sync-dot"><span class="led" id="syncLed"></span><span id="syncText">synced</span></div>
   </header>
 
-  <div class="next-feed-card" id="nextFeedCard"></div>
+  <div class="next-feed-card no-print" id="nextFeedCard"></div>
 
   <div class="stats">
     <div class="stat">
@@ -234,51 +249,57 @@
     </div>
   </div>
 
-  <button class="feed-btn" id="feedBtn">
+  <button class="feed-btn no-print" id="feedBtn">
     <span id="feedBtnLabel">Start feeding</span>
     <span style="display:flex; align-items:center; gap:8px;">
       <span class="feed-timer" id="feedTimer"></span>
       <span class="pulse"></span>
     </span>
   </button>
-  <div id="feedStartEdit" class="active-timer-edit" style="display:none;"></div>
+  <div id="feedStartEdit" class="active-timer-edit no-print" style="display:none;"></div>
 
-  <button class="feed-btn sleep-btn" id="sleepBtn">
+  <button class="feed-btn sleep-btn no-print" id="sleepBtn">
     <span id="sleepBtnLabel">Start sleep</span>
     <span style="display:flex; align-items:center; gap:8px;">
       <span class="feed-timer" id="sleepTimer"></span>
       <span class="pulse"></span>
     </span>
   </button>
-  <div id="sleepStartEdit" class="active-timer-edit" style="display:none;"></div>
+  <div id="sleepStartEdit" class="active-timer-edit no-print" style="display:none;"></div>
 
-  <div id="tagPanel" style="display:none;"></div>
+  <div id="tagPanel" class="no-print" style="display:none;"></div>
 
-  <div class="row2">
+  <div class="row2 no-print">
     <button class="diaper-btn pee" id="peeBtn"><span class="icon">💛</span>Pee<span class="hint">log now</span></button>
     <button class="diaper-btn poop" id="poopBtn"><span class="icon">🟤</span>Poop<span class="hint">log now</span></button>
   </div>
 
-  <div class="timeline-wrap">
+  <div class="timeline-wrap no-print">
     <div class="section-label">Today's rhythm</div>
     <div class="timeline" id="timeline"><div class="timeline-empty">Nothing logged today yet</div></div>
   </div>
 
-  <div class="view-toggle">
+  <div class="view-toggle no-print">
     <button class="toggle-btn active" id="listViewBtn">List</button>
     <button class="toggle-btn" id="tableViewBtn">Table</button>
     <button class="toggle-btn" id="summaryViewBtn">Summary</button>
     <button class="toggle-btn export" id="exportBtn">Export CSV</button>
+    <button class="toggle-btn print" id="printBtn">🖨️ Print Summary</button>
   </div>
 
-  <div id="log"></div>
-  <div id="tableView" style="display:none;"></div>
+  <div id="log" class="no-print"></div>
+  <div id="tableView" class="no-print" style="display:none;"></div>
+  <div id="printHeader" class="print-only">
+    <h1 style="font-family:'Fraunces',serif; margin:0 0 2px;">🍼 Baby Tracker — Summary</h1>
+    <div id="printMeta" style="font-size:12px; color:#666; margin-bottom:16px;"></div>
+  </div>
+
   <div id="summaryView" style="display:none;"></div>
 
-  <footer>Shared with both parents — updates sync automatically every few seconds.</footer>
+  <footer class="no-print">Shared with both parents — updates sync automatically every few seconds.</footer>
 </div>
 
-<div id="toast" class="toast"></div>
+<div id="toast" class="toast no-print"></div>
 
 <script type="module">
 // ====== FIREBASE CONFIG — paste your project config here ======
@@ -1133,6 +1154,19 @@ document.getElementById('listViewBtn').addEventListener('click', ()=> setActiveV
 document.getElementById('tableViewBtn').addEventListener('click', ()=> setActiveView('table'));
 document.getElementById('summaryViewBtn').addEventListener('click', ()=> setActiveView('summary'));
 document.getElementById('exportBtn').addEventListener('click', exportCSV);
+document.getElementById('printBtn').addEventListener('click', ()=>{
+  const meta = document.getElementById('printMeta');
+  if(events.length){
+    const times = events.map(e=> new Date(eventTime(e)));
+    const earliest = new Date(Math.min(...times));
+    const latest = new Date(Math.max(...times));
+    const fmtDay = d => d.toLocaleDateString([], {month:'short', day:'numeric', year:'numeric'});
+    meta.textContent = `Data from ${fmtDay(earliest)} to ${fmtDay(latest)} · printed ${fmtDay(new Date())}`;
+  } else {
+    meta.textContent = `Printed ${new Date().toLocaleDateString([], {month:'short', day:'numeric', year:'numeric'})}`;
+  }
+  window.print();
+});
 
 // Pull-to-refresh — reloads the page, which re-establishes the Firestore
 // connection. Useful since Safari on iOS often suspends the realtime
