@@ -26,6 +26,8 @@
     --poop-soft: #EAE0D2;
     --sleep: #6C7BB0;
     --sleep-soft: #E3E6F3;
+    --weight: #4E9A94;
+    --weight-soft: #DCEEEC;
     --good: #5B8C6E;
     --radius: 18px;
   }
@@ -61,6 +63,24 @@
   .interval-edit{display:flex; align-items:center; gap:6px;}
   .interval-edit input{width:48px; font-family:'Inter',sans-serif; font-size:13px; padding:6px 8px; border-radius:8px; border:1px solid var(--line);}
   .interval-edit button{border:none; background:var(--feed); color:#fff; font-weight:600; font-size:12px; padding:6px 10px; border-radius:8px; cursor:pointer;}
+
+  .weight-card{
+    background:var(--weight-soft); border:1px solid #A9D6D1; border-radius:var(--radius);
+    padding:14px 16px; margin-bottom:16px; cursor:pointer;
+  }
+  .weight-card .wc-row{display:flex; align-items:center; justify-content:space-between; gap:10px;}
+  .weight-card .wc-label{font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); font-weight:600;}
+  .weight-card .wc-value{font-family:'Fraunces',serif; font-size:19px; font-weight:600; margin-top:2px;}
+  .weight-card .wc-sub{font-size:12px; color:var(--ink-soft); margin-top:1px;}
+  .weight-card .wc-action{font-size:12px; color:var(--weight); font-weight:700; background:rgba(255,255,255,0.6); padding:6px 10px; border-radius:20px; white-space:nowrap;}
+  .weight-form{display:flex; flex-direction:column; gap:10px;}
+  .weight-form .wf-inputs{display:flex; gap:8px; align-items:flex-end;}
+  .weight-form label{display:flex; flex-direction:column; gap:4px; font-size:12px; color:var(--ink-soft); font-weight:600; flex:1;}
+  .weight-form input{font-family:'Inter',sans-serif; font-size:14px; padding:8px 10px; border-radius:8px; border:1px solid var(--line); width:100%;}
+  .weight-form .wf-actions{display:flex; gap:8px;}
+  .weight-form .wf-actions button{flex:1; border:none; border-radius:10px; padding:9px; font-family:'Inter',sans-serif; font-weight:600; font-size:13.5px; cursor:pointer;}
+  .weight-form .wf-save{background:var(--weight); color:#fff;}
+  .weight-form .wf-cancel{background:rgba(255,255,255,0.7); color:var(--ink);}
 
   .stats{display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin-bottom:16px;}
   .stat{background:var(--bg-card); border-radius:var(--radius); padding:12px 10px; border:1px solid var(--line);}
@@ -109,7 +129,7 @@
   .section-label{font-size:12px; text-transform:uppercase; letter-spacing:.06em; color:var(--ink-soft); font-weight:600; margin:0 0 8px 2px;}
   .timeline{display:flex; gap:6px; overflow-x:auto; padding:10px 2px; background:var(--bg-card); border-radius:var(--radius); border:1px solid var(--line);}
   .tdot{flex:0 0 auto; width:10px; height:10px; border-radius:50%; margin-top:4px;}
-  .tdot.feed{background:var(--feed);} .tdot.pee{background:var(--pee);} .tdot.poop{background:var(--poop);} .tdot.sleep{background:var(--sleep);}
+  .tdot.feed{background:var(--feed);} .tdot.pee{background:var(--pee);} .tdot.poop{background:var(--poop);} .tdot.sleep{background:var(--sleep);} .tdot.weight{background:var(--weight);}
   .timeline-empty{padding:14px; color:var(--ink-soft); font-size:13px;}
 
   .log-day{margin-bottom:6px;}
@@ -134,6 +154,7 @@
   table.log-table tr:last-child td{border-bottom:none;}
   table.log-table .type-feed{color:var(--feed); font-weight:600;}
   table.log-table .type-sleep{color:var(--sleep); font-weight:600;}
+  table.log-table .type-weight{color:var(--weight); font-weight:600;}
   table.log-table .type-pee{color:#B08F1E; font-weight:600;}
   table.log-table .type-poop{color:var(--poop); font-weight:600;}
   .log-day-label{font-size:13px; font-weight:600; color:var(--ink-soft); margin:18px 2px 8px;}
@@ -142,7 +163,7 @@
     border-radius:14px; padding:12px 14px; margin-bottom:8px;
   }
   .entry .badge{width:34px; height:34px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:17px; flex:0 0 auto;}
-  .entry .badge.feed{background:var(--feed-soft);} .entry .badge.pee{background:var(--pee-soft);} .entry .badge.poop{background:var(--poop-soft);} .entry .badge.sleep{background:var(--sleep-soft);}
+  .entry .badge.feed{background:var(--feed-soft);} .entry .badge.pee{background:var(--pee-soft);} .entry .badge.poop{background:var(--poop-soft);} .entry .badge.sleep{background:var(--sleep-soft);} .entry .badge.weight{background:var(--weight-soft);}
   .entry .meta{flex:1; min-width:0;}
   .entry .meta .type{font-weight:600; font-size:14.5px;}
   .entry .meta .time{font-size:12.5px; color:var(--ink-soft); margin-top:1px;}
@@ -249,6 +270,8 @@
     </div>
   </div>
 
+  <div id="weightCard" class="weight-card no-print"></div>
+
   <button class="feed-btn no-print" id="feedBtn">
     <span id="feedBtnLabel">Start feeding</span>
     <span style="display:flex; align-items:center; gap:8px;">
@@ -332,6 +355,7 @@ let tagPromptId = null;
 let feedIntervalHours = 3;
 let editingInterval = false;
 let editingActiveTimer = null; // null | 'feed' | 'sleep'
+let addingWeight = false;
 let toastTimeout = null;
 
 function isTimedEvent(type){ return type === 'feed' || type === 'sleep'; }
@@ -535,6 +559,90 @@ function renderActiveTimerEdit(kind){
   }
 }
 
+// Weight is stored internally as total decimal pounds (e.g. 8.375),
+// but parents think in lb + oz, so convert on the way in and out.
+function fmtWeight(totalLb){
+  const wholeLb = Math.floor(totalLb);
+  let oz = Math.round((totalLb - wholeLb) * 16);
+  let lb = wholeLb;
+  if(oz === 16){ oz = 0; lb += 1; }
+  return `${lb} lb ${oz} oz`;
+}
+function lbOzToDecimal(lb, oz){
+  return (parseFloat(lb)||0) + (parseFloat(oz)||0)/16;
+}
+
+let lastWeightCardRendered = false;
+function renderWeightCard(){
+  const card = document.getElementById('weightCard');
+  if(addingWeight && lastWeightCardRendered) return; // form open — don't wipe unsaved typing
+  lastWeightCardRendered = addingWeight;
+
+  if(addingWeight){
+    card.onclick = null;
+    const nowLocal = toLocalInputValue(new Date().toISOString());
+    card.innerHTML = `<div class="weight-form">
+      <div class="wc-label">Log a weight check</div>
+      <div class="wf-inputs">
+        <label>lb<input type="number" min="0" step="1" id="weightLbInput" placeholder="8"></label>
+        <label>oz<input type="number" min="0" max="15" step="1" id="weightOzInput" placeholder="4"></label>
+      </div>
+      <label>When<input type="datetime-local" id="weightTimeInput" value="${nowLocal}"></label>
+      <div class="wf-actions">
+        <button class="wf-save" id="weightSaveBtn">Save</button>
+        <button class="wf-cancel" id="weightCancelBtn">Cancel</button>
+      </div>
+    </div>`;
+    document.getElementById('weightSaveBtn').addEventListener('click', async ()=>{
+      const lb = document.getElementById('weightLbInput').value;
+      const oz = document.getElementById('weightOzInput').value;
+      const whenVal = document.getElementById('weightTimeInput').value;
+      const value = lbOzToDecimal(lb, oz);
+      if(value > 0 && whenVal){
+        const newId = 'e'+Date.now()+'-'+Math.random().toString(36).slice(2,8);
+        events.push({ id:newId, type:'weight', time: fromLocalInputValue(whenVal), value });
+        await saveEvents();
+        showToast('Weight logged', newId);
+      }
+      addingWeight = false;
+      renderAll();
+    });
+    document.getElementById('weightCancelBtn').addEventListener('click', ()=>{
+      addingWeight = false;
+      renderAll();
+    });
+  } else {
+    const weights = events.filter(e=>e.type==='weight').sort((a,b)=> new Date(b.time)-new Date(a.time));
+    if(!weights.length){
+      card.innerHTML = `<div class="wc-row">
+        <div><div class="wc-label">Weight</div><div class="wc-sub">No checks logged yet</div></div>
+        <div class="wc-action">+ Log weight</div>
+      </div>`;
+    } else {
+      const latest = weights[0];
+      let deltaHtml = '';
+      if(weights.length > 1){
+        const diff = latest.value - weights[1].value;
+        const sign = diff > 0 ? '+' : (diff < 0 ? '−' : '');
+        const diffOz = Math.round(Math.abs(diff)*16);
+        deltaHtml = diff !== 0 ? ` · ${sign}${diffOz}oz since last check` : ' · no change since last check';
+      }
+      card.innerHTML = `<div class="wc-row">
+        <div>
+          <div class="wc-label">Weight</div>
+          <div class="wc-value">${fmtWeight(latest.value)}</div>
+          <div class="wc-sub">${fmtDateLabel(latest.time)}, ${fmtTime(latest.time)}${deltaHtml}</div>
+        </div>
+        <div class="wc-action">+ Log new</div>
+      </div>`;
+    }
+    card.onclick = ()=>{
+      addingWeight = true;
+      renderAll();
+    };
+  }
+}
+
 function fmtCountdown(ms){
   const mins = Math.round(Math.abs(ms)/60000);
   const h = Math.floor(mins/60);
@@ -689,6 +797,8 @@ function renderLog(){
         timeLabel = fmtTime(e.start) + (e.end ? ' – ' + fmtTime(e.end) + ' · ' + durationStr(e.start, e.end) : ' · in progress');
       } else if(e.type==='pee'){
         icon = '💛'; typeLabel = 'Pee'; timeLabel = fmtTime(e.time);
+      } else if(e.type==='weight'){
+        icon = '⚖️'; typeLabel = 'Weight'; timeLabel = fmtWeight(e.value) + ' · ' + fmtTime(e.time);
       } else {
         icon = '🟤'; typeLabel = 'Poop'; timeLabel = fmtTime(e.time);
       }
@@ -748,6 +858,11 @@ function renderLog(){
         ev.side = sideVal || null;
         ev.amount = (sideVal === 'Bottle' && amountEl && amountEl.value) ? parseFloat(amountEl.value) : null;
       }
+      if(ev.type === 'weight'){
+        const lbEl = document.getElementById('editWeightLb-'+id);
+        const ozEl = document.getElementById('editWeightOz-'+id);
+        if(lbEl && ozEl) ev.value = lbOzToDecimal(lbEl.value, ozEl.value);
+      }
       const noteEl = document.getElementById('editNote-'+id);
       ev.note = (noteEl && noteEl.value.trim()) ? noteEl.value.trim() : null;
       editingId = null;
@@ -769,6 +884,14 @@ function renderEditForm(e){
       </select>
     </label>
     <label>Amount (oz, if bottle)<input type="number" min="0" step="0.5" id="editAmount-${e.id}" value="${e.amount != null ? e.amount : ''}"></label>` : '';
+  const weightField = e.type === 'weight' ? (()=>{
+    const wholeLb = Math.floor(e.value);
+    const oz = Math.round((e.value - wholeLb) * 16);
+    return `<div class="wf-inputs">
+      <label>lb<input type="number" min="0" step="1" id="editWeightLb-${e.id}" value="${wholeLb}"></label>
+      <label>oz<input type="number" min="0" max="15" step="1" id="editWeightOz-${e.id}" value="${oz}"></label>
+    </div>`;
+  })() : '';
   if(isTimedEvent(e.type)){
     return `<div class="entry entry-editing">
       <div class="edit-form">
@@ -786,6 +909,7 @@ function renderEditForm(e){
     return `<div class="entry entry-editing">
       <div class="edit-form">
         <label>Time<input type="datetime-local" id="editTime-${e.id}" value="${toLocalInputValue(e.time)}"></label>
+        ${weightField}
         ${noteField}
         <div class="edit-actions">
           <button class="edit-save" data-id="${e.id}">Save</button>
@@ -816,8 +940,8 @@ function renderTable(){
     const t = eventTime(e);
     const dateStr = new Date(t).toLocaleDateString([], {month:'short', day:'numeric'});
     const timeStr = fmtTime(t);
-    const typeLabel = e.type==='feed' ? 'Feeding' : (e.type==='sleep' ? 'Sleep' : (e.type==='pee' ? 'Pee' : 'Poop'));
-    const durationCol = isTimedEvent(e.type) ? (e.end ? durationStr(e.start, e.end) : 'in progress') : '—';
+    const typeLabel = e.type==='feed' ? 'Feeding' : (e.type==='sleep' ? 'Sleep' : (e.type==='pee' ? 'Pee' : (e.type==='weight' ? 'Weight' : 'Poop')));
+    const durationCol = isTimedEvent(e.type) ? (e.end ? durationStr(e.start, e.end) : 'in progress') : (e.type==='weight' ? fmtWeight(e.value) : '—');
     const detailBits = [];
     if(e.type==='feed' && e.side) detailBits.push(e.side + (e.side==='Bottle' && e.amount ? ' ' + e.amount + 'oz' : ''));
     if(e.note) detailBits.push(e.note);
@@ -961,17 +1085,18 @@ function exportCSV(){
     return ta - tb;
   });
   const csvEscape = s => '"' + String(s).replace(/"/g,'""') + '"';
-  let csv = 'Date,Time,Type,Duration,Side,Amount (oz),Note\n';
+  let csv = 'Date,Time,Type,Duration,Side,Amount (oz),Weight,Note\n';
   sorted.forEach(e=>{
     const t = eventTime(e);
     const dateStr = new Date(t).toLocaleDateString();
     const timeStr = fmtTime(t);
-    const typeLabel = e.type==='feed' ? 'Feeding' : (e.type==='sleep' ? 'Sleep' : (e.type==='pee' ? 'Pee' : 'Poop'));
+    const typeLabel = e.type==='feed' ? 'Feeding' : (e.type==='sleep' ? 'Sleep' : (e.type==='pee' ? 'Pee' : (e.type==='weight' ? 'Weight' : 'Poop')));
     const durationCol = isTimedEvent(e.type) ? (e.end ? durationStr(e.start, e.end) : 'in progress') : '';
     const sideCol = e.type==='feed' && e.side ? e.side : '';
     const amountCol = e.type==='feed' && e.side==='Bottle' && e.amount != null ? e.amount : '';
+    const weightCol = e.type==='weight' ? fmtWeight(e.value) : '';
     const noteCol = e.note || '';
-    csv += [dateStr, timeStr, typeLabel, durationCol, sideCol, amountCol, csvEscape(noteCol)].join(',') + '\n';
+    csv += [dateStr, timeStr, typeLabel, durationCol, sideCol, amountCol, weightCol, csvEscape(noteCol)].join(',') + '\n';
   });
   const blob = new Blob([csv], {type:'text/csv'});
   const url = URL.createObjectURL(blob);
@@ -991,6 +1116,7 @@ function renderAll(){
   renderActiveTimerEdit('sleep');
   updateStats();
   renderNextFeedCard();
+  renderWeightCard();
   renderTimeline();
   renderLog();
   renderTable();
